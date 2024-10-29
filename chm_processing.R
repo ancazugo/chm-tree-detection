@@ -65,15 +65,21 @@ chm_spat_rast <- merge(sprc(valid_rasters[1:4]))
 kernel <- matrix(1,3,3)
 chm_smoothed <- focal(chm_spat_rast, w = kernel, fun = median, na.rm = T)
 
-vrt_file <- tempfile(fileext = ".vrt")
-terra::writeRaster(chm_smoothed, vrt_file, filetype = "VRT", overwrite = TRUE)
+vrt_file <- tempfile(fileext = ".tiff")
+terra::writeRaster(chm_smoothed, vrt_file, filetype = "GTiff", overwrite = TRUE)
 
 # Read the VRT file as a RasterLayer (which lidR can work with)
 chm_smoothed_raster <- raster::raster(vrt_file)
-
+print('Locate trees')
 ttops_chm_smoothed <- locate_trees(chm_smoothed, lmf(5))
 
 plot(ttops_chm_smoothed)
+print('Segment trees')
 
-algo <- dalponte2016(chm_smoothed_raster, ttops_chm_smoothed)
+vrt2_file <- tempfile(fileext = ".gpkg")
+sf::write_sf(ttops_chm_smoothed, vrt2_file)
+ttops_chm_smoothed_gpkg <- sf::read_sf(vrt2_file)
+
+algo <- dalponte2016(chm_smoothed_raster, ttops_chm_smoothed_gpkg)
 crowns <- algo()
+writeRaster(crowns, 'crowns_vom.tiff', filetype = "GTiff", overwrite = TRUE)
