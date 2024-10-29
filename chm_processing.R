@@ -58,7 +58,7 @@ for (file in chm_paths) {
         valid_rasters[[length(valid_rasters) + 1]] <- r
     }
 }
-
+print('Merging Rasters')
 # Combine valid rasters into a single SpatRaster object
 chm_spat_rast <- merge(sprc(valid_rasters))
 
@@ -76,10 +76,12 @@ f <- function(x) {
     return(y)
 }
 
+print('Locating Trees')
 ttops_chm_smoothed <- locate_trees(chm_smoothed, lmf(f))
 ttops_chm_smoothed_spat_vect <- vect(ttops_chm_smoothed)
 names(ttops_chm_smoothed_spat_vect)[2] <- 'height'
 
+print('Segmenting Trees')
 algo <- dalponte2016(chm_smoothed_rast, ttops_chm_smoothed)
 crowns <- algo()
 crowns_spat_rast <- as(crowns, 'SpatRaster')
@@ -87,6 +89,7 @@ crowns_spat_rast <- as(crowns, 'SpatRaster')
 crowns_vect <- as.polygons(crowns_spat_rast)
 names(crowns_vect) <- 'treeID'
 
+print('Saving Crowns')
 crowns_vect <- merge(crowns_vect, ttops_chm_smoothed_spat_vect, by = 'treeID')
 crowns_vect$area <- expanse(crowns_vect, unit = "m")
 writeVector(crowns_vect, crowns_path, overwrite = T)
