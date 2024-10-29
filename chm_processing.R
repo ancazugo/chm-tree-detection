@@ -25,9 +25,7 @@ hillshade_paths <- tif_paths[str_detect(tif_paths, 'VOM_HS')]
 chm_paths <- tif_paths[!str_detect(tif_paths, 'VOM_HS')]
 
 # TQ27nw/2075 from 2018 doesn't have a chm tile
-# TQ16se/1560 is invalid format
-# chm_paths |> str_extract("[A-Z][A-Z][0-9][0-9][0-9][0-9]")
-# hillshade_paths |> str_extract("[A-Z][A-Z][0-9][0-9][0-9][0-9]")
+# TQ16se/1560 from 2018 is invalid format
 
 # CHM Processing with lidR ------------------------------------------------
 
@@ -60,26 +58,33 @@ for (file in chm_paths) {
 }
 
 # Combine valid rasters into a single SpatRaster object
-chm_spat_rast <- merge(sprc(valid_rasters[1:4]))
+chm_spat_rast <- merge(sprc(valid_rasters[42:45]))
 
 kernel <- matrix(1,3,3)
 chm_smoothed <- focal(chm_spat_rast, w = kernel, fun = median, na.rm = T)
+current_crs <- terra::crs(chm_smoothed)
 
-vrt_file <- tempfile(fileext = ".tiff")
-terra::writeRaster(chm_smoothed, vrt_file, filetype = "GTiff", overwrite = TRUE)
+chm_smoothed_rast <- raster::raster(chm_smoothed)
+terra::crs(chm_smoothed_rast) <- current_crs
 
-# Read the VRT file as a RasterLayer (which lidR can work with)
-chm_smoothed_raster <- raster::raster(vrt_file)
-print('Locate trees')
-ttops_chm_smoothed <- locate_trees(chm_smoothed, lmf(5))
+f <- function(x) {
+    y <- 2.6 * (-(exp(-0.08*(x-2)) - 1)) + 3
+    y[x < 2] <- 3
+    y[x > 20] <- 5
+    return(y)
+}
 
-plot(ttops_chm_smoothed)
-print('Segment trees')
+ttops_chm_smoothed <- locate_trees(chm_smoothed, lmf(f))
+ttops_chm_smoothed_spat_vect <- vect(ttops_chm_smoothed)
+names(ttops_chm_smoothed_spat_vect)[2] <- 'height'
 
-vrt2_file <- tempfile(fileext = ".gpkg")
-sf::write_sf(ttops_chm_smoothed, vrt2_file)
-ttops_chm_smoothed_gpkg <- sf::read_sf(vrt2_file)
-
-algo <- dalponte2016(chm_smoothed_raster, ttops_chm_smoothed_gpkg)
+algo <- dalponte2016(chm_smoothed_rast, ttops_chm_smoothed)
 crowns <- algo()
-writeRaster(crowns, 'crowns_vom.tiff', filetype = "GTiff", overwrite = TRUE)
+crowns_spat_rast <- as(crowns, 'SpatRaster')
+
+crowns_vect <- as.polygons(crowns_spat_rast)
+names(crowns_vect) <- 'treeID'
+
+crowns_vect <- merge(crowns_vect, ttops_chm_smoothed_spat_vect, by = 'treeID')
+crowns_vect$area <- expanse(crowns_vect, unit = "m")
+writeVector(crowns_vect, 'crowns_func.gpkg', overwrite = T)
