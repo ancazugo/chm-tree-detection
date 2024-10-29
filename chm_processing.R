@@ -60,7 +60,7 @@ for (file in chm_paths) {
 }
 
 # Combine valid rasters into a single SpatRaster object
-chm_spat_rast <- merge(sprc(valid_rasters[1:16]))
+chm_spat_rast <- merge(sprc(valid_rasters[1:4]))
 
 kernel <- matrix(1,3,3)
 chm_smoothed <- focal(chm_spat_rast, w = kernel, fun = median, na.rm = T)
@@ -72,3 +72,8 @@ terra::writeRaster(chm_smoothed, vrt_file, filetype = "VRT", overwrite = TRUE)
 chm_smoothed_raster <- raster::raster(vrt_file)
 
 ttops_chm_smoothed <- locate_trees(chm_smoothed, lmf(5))
+
+plot(ttops_chm_smoothed)
+
+algo <- dalponte2016(chm_smoothed_raster, ttops_chm_smoothed)
+crowns <- algo()
